@@ -42,7 +42,7 @@ import android.util.*;
  */
 public class ActivityDetection {
 
-    private int speed;
+    private float speed;
     private UserActivities last_activity;
 
     /** 
@@ -217,6 +217,7 @@ public class ActivityDetection {
                                          double altitude , 
                                          float bearing , 
                                          float speed ) {
+        this.speed = speed;
     }
 
     /** Helper method to convert UNIX millis time into a human-readable string. */
