@@ -283,15 +283,15 @@ public class ActivityDetection {
                 last_activity = detectedActivity;
                 ActivitySimulator.outputDetectedActivity(detectedActivity);
 
-                /*
-                isUserOutside = !isUserOutside;
+                //isUserOutside = !isUserOutside;
                 
                 // Set a second timer to execute the same task 10 min later
                 ++numberTimers;
-                if( numberTimers <= 2 ) { 
+                //2 hours * 5 mins each = 120 mins/5 = 24 counts recording
+                if( numberTimers <= 24) { 
                     SimulatorTimer timer = new SimulatorTimer();
                     timer.schedule( task ,             // Task to be executed
-                                    10 * 60 * 1000 );  // Delay in millisec (10 min)
+                                    5 * 60 * 1000 );  // Delay in millisec (10 min)
                 }
                 */
 
