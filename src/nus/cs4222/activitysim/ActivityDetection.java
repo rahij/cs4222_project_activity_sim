@@ -293,8 +293,6 @@ public class ActivityDetection {
                     timer.schedule( task ,             // Task to be executed
                                     5 * 60 * 1000 );  // Delay in millisec (10 min)
                 }
-                */
-
             }
         };
 }
