@@ -45,6 +45,10 @@ public class ActivityDetection {
     private float speed;
     private UserActivities last_activity;
 
+    private float light;
+    private float x;
+    private float y;
+
     /** 
        Called when the accelerometer sensor has changed.
 
@@ -62,6 +66,8 @@ public class ActivityDetection {
 
         // Process the sensor data as they arrive in each callback, 
         //  with all the processing in the callback itself (don't create threads).
+        this.x = x;
+        this.y = y;
 
         // You will most likely not need to use Timers at all, it is just 
         //  provided for convenience if you require.
@@ -183,6 +189,8 @@ public class ActivityDetection {
     public void onLightSensorChanged( long timestamp , 
                                       float light , 
                                       int accuracy ) {
+
+      this.light = light;
     }
 
     /** 
@@ -229,9 +237,11 @@ public class ActivityDetection {
     private static final SimpleDateFormat sdf = new SimpleDateFormat( "yyyy-MM-dd-h-mm-ssa" );
 
     // Dummy variables used in the dummy timer code example
-    private boolean isFirstAcclReading = true;
-    private boolean isUserOutside = false;
+    //private boolean isFirstAcclReading = true;
+    //private boolean isUserOutside = false;
     private int numberTimers = 1;
+    private boolean isIdle = false;
+
     private Runnable task = new Runnable() {
             public void run() {
 
@@ -248,17 +258,32 @@ public class ActivityDetection {
                 UserActivities detectedActivity;
 
                 // TODO: Detection Algorithm
-                if( ! isUserOutside ) {
-                    detectedActivity = UserActivities.IDLE_INDOOR;
+                if ( (x>1 || x<-1) || (y>1 || y<-1) ) {
+                  isIdle = false;
+                } else {
+                  isIdle = true;
                 }
-                else {
-                    detectedActivity = UserActivities.WALKING;
+
+                if(isIdle) {
+                  if () {
+                    detectedActivity = UserActivities.IDLE_INDOOR;
+                  } else {
+                    detectedActivity = UserActivities.IDLE_OUTDOOR;
+                  }
+                } else {
+                  if(speed > 3) {
+                    detectedActivity = UserActivities.BUS;
+                  } else {
+                    detectedActivity =  UserActivities.WALKING;
+                  }
                 }
 
                 last_activity = detectedActivity;
                 ActivitySimulator.outputDetectedActivity(detectedActivity);
+                
+                /*
                 isUserOutside = !isUserOutside;
-
+                
                 // Set a second timer to execute the same task 10 min later
                 ++numberTimers;
                 if( numberTimers <= 2 ) { 
@@ -266,6 +291,8 @@ public class ActivityDetection {
                     timer.schedule( task ,             // Task to be executed
                                     10 * 60 * 1000 );  // Delay in millisec (10 min)
                 }
+                */
+
             }
         };
 }
