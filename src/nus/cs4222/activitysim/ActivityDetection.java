@@ -1,10 +1,8 @@
 package nus.cs4222.activitysim;
 
-import java.io.*;
 import java.util.*;
 import java.text.*;
 
-import android.hardware.*;
 import android.util.*;
 
 /**
@@ -44,6 +42,9 @@ import android.util.*;
  */
 public class ActivityDetection {
 
+    private int speed;
+    private UserActivities last_activity;
+
     /** 
        Called when the accelerometer sensor has changed.
 
@@ -53,7 +54,7 @@ public class ActivityDetection {
        @param   z            Accl z value (m/sec^2)
        @param   accuracy     Accuracy of the sensor data (you can ignore this)
      */
-    public void onAcclSensorChanged( long timestamp , 
+    public void onAcclSensorChanged( long timestamp ,
                                      float x , 
                                      float y , 
                                      float z , 
@@ -243,12 +244,18 @@ public class ActivityDetection {
                 // Dummy example of outputting a detected activity 
                 //  (to the file "DetectedActivities.txt" in the trace folder).
                 //  (here we just alternate between indoor and walking every 10 min)
+                UserActivities detectedActivity;
+
+                // TODO: Detection Algorithm
                 if( ! isUserOutside ) {
-                    ActivitySimulator.outputDetectedActivity( UserActivities.IDLE_INDOOR );
+                    detectedActivity = UserActivities.IDLE_INDOOR;
                 }
                 else {
-                    ActivitySimulator.outputDetectedActivity( UserActivities.WALKING );
+                    detectedActivity = UserActivities.WALKING;
                 }
+
+                last_activity = detectedActivity;
+                ActivitySimulator.outputDetectedActivity(detectedActivity);
                 isUserOutside = !isUserOutside;
 
                 // Set a second timer to execute the same task 10 min later
