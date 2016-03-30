@@ -72,6 +72,7 @@ public class ActivityDetection {
         // You will most likely not need to use Timers at all, it is just 
         //  provided for convenience if you require.
 
+        /*
         // Here, we just show a dummy example of creating a timer 
         //  to execute a task 10 minutes later.
         // Be careful not to create too many timers!
@@ -80,7 +81,7 @@ public class ActivityDetection {
             SimulatorTimer timer = new SimulatorTimer();
             timer.schedule( this.task ,        // Task to be executed
                             10 * 60 * 1000 );  // Delay in millisec (10 min)
-        }
+        }*/
     }
 
     /** 
