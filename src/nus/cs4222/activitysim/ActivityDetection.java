@@ -265,7 +265,7 @@ public class ActivityDetection {
                 }
 
                 if(isIdle) {
-                  if () {
+                  if (light<300) {
                     detectedActivity = UserActivities.IDLE_INDOOR;
                   } else {
                     detectedActivity = UserActivities.IDLE_OUTDOOR;
@@ -280,7 +280,7 @@ public class ActivityDetection {
 
                 last_activity = detectedActivity;
                 ActivitySimulator.outputDetectedActivity(detectedActivity);
-                
+
                 /*
                 isUserOutside = !isUserOutside;
                 
