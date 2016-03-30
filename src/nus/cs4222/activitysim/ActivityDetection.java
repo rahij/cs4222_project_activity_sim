@@ -258,10 +258,11 @@ public class ActivityDetection {
                 UserActivities detectedActivity;
 
                 // TODO: Detection Algorithm
-                if ( (x>1 || x<-1) || (y>1 || y<-1) ) {
-                  isIdle = false;
-                } else {
+                /*x within -1 to 1 and y within -1 to 1, idling*/
+                if ( (x<1 && x>-1) && (y<1 && y>-1) ) {
                   isIdle = true;
+                } else {
+                  isIdle = false;
                 }
 
                 if(isIdle) {
