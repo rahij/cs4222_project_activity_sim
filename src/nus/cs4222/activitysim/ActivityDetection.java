@@ -3,15 +3,16 @@ package nus.cs4222.activitysim;
 import java.util.*;
 import java.text.*;
 
+import android.hardware.SensorManager;
 import android.util.*;
 
 /**
    Class containing the activity detection algorithm.
 
    <p> You can code your activity detection algorithm in this class.
-    (You may add more Java class files or add libraries in the 'libs' 
+    (You may add more Java class files or add libraries in the 'libs'
      folder if you need).
-    The different callbacks are invoked as per the sensor log files, 
+    The different callbacks are invoked as per the sensor log files,
     in the increasing order of timestamps. In the best case, you will
     simply need to copy paste this class file (and any supporting class
     files and libraries) to the Android app without modification
@@ -27,20 +28,23 @@ import android.util.*;
 
    <p> To get the current simulator time, use the method
     {@link ActivitySimulator.currentTimeMillis()}. You can set timers using
-    the {@link SimulatorTimer} class if you require. You can log to the 
+    the {@link SimulatorTimer} class if you require. You can log to the
     console/DDMS using either {@code System.out.println()} or using the
     {@link android.util.Log} class. You can use the {@code SensorManager.getRotationMatrix()}
     method (and any other helpful methods) as you would normally do on Android.
 
    <p> Note: Since this is a simulator, DO NOT create threads, DO NOT sleep(),
-    or do anything that can cause the simulator to stall/pause. You 
-    can however use timers if you require, see the documentation of the 
-    {@link SimulatorTimer} class. 
+    or do anything that can cause the simulator to stall/pause. You
+    can however use timers if you require, see the documentation of the
+    {@link SimulatorTimer} class.
     In the simulator, the timers are faked. When you copy the code into an
     actual Android app, the timers are real, but the code of this class
     does not need not be modified.
  */
 public class ActivityDetection {
+
+    long ACCL_WINDOW_SIZE = 4 * 1000; // millis
+    float ACCL_THRESHOLD = 0.01F * SensorManager.GRAVITY_EARTH;
 
     private float speed;
     private UserActivities last_activity;
@@ -49,7 +53,32 @@ public class ActivityDetection {
     private float x;
     private float y;
 
-    /** 
+    // Timestamped lin accl value
+    private static class TimestampedLinAcclValue {
+        public float mag;
+        public long timestamp;
+        public TimestampedLinAcclValue( float mag , long timestamp ) {
+            this.timestamp = timestamp;
+            this.mag = mag;
+        }
+    }
+    // Window for lin accl values
+    LinkedList< TimestampedLinAcclValue > acclWindow =
+            new LinkedList<TimestampedLinAcclValue>();
+    boolean isFirstAcclReading = true;
+
+    public void initDetection()
+            throws Exception {
+        // Add initialisation code here, if any
+    }
+
+    /** De-initialises the detection algorithm. */
+    public void deinitDetection()
+            throws Exception {
+        // Add de-initialisation code here, if any
+    }
+
+    /**
        Called when the accelerometer sensor has changed.
 
        @param   timestamp    Timestamp of this sensor event
@@ -59,32 +88,18 @@ public class ActivityDetection {
        @param   accuracy     Accuracy of the sensor data (you can ignore this)
      */
     public void onAcclSensorChanged( long timestamp ,
-                                     float x , 
-                                     float y , 
-                                     float z , 
+                                     float x ,
+                                     float y ,
+                                     float z ,
                                      int accuracy ) {
 
-        // Process the sensor data as they arrive in each callback, 
+        // Process the sensor data as they arrive in each callback,
         //  with all the processing in the callback itself (don't create threads).
         this.x = x;
         this.y = y;
-
-        // You will most likely not need to use Timers at all, it is just 
-        //  provided for convenience if you require.
-
-        /*
-        // Here, we just show a dummy example of creating a timer 
-        //  to execute a task 10 minutes later.
-        // Be careful not to create too many timers!
-        if( isFirstAcclReading ) {
-            isFirstAcclReading = false;
-            SimulatorTimer timer = new SimulatorTimer();
-            timer.schedule( this.task ,        // Task to be executed
-                            10 * 60 * 1000 );  // Delay in millisec (10 min)
-        }*/
     }
 
-    /** 
+    /**
        Called when the gravity sensor has changed.
 
        @param   timestamp    Timestamp of this sensor event
@@ -93,14 +108,14 @@ public class ActivityDetection {
        @param   z            Gravity z value (m/sec^2)
        @param   accuracy     Accuracy of the sensor data (you can ignore this)
      */
-    public void onGravitySensorChanged( long timestamp , 
-                                        float x , 
-                                        float y , 
-                                        float z , 
+    public void onGravitySensorChanged( long timestamp ,
+                                        float x ,
+                                        float y ,
+                                        float z ,
                                         int accuracy ) {
     }
 
-    /** 
+    /**
        Called when the linear accelerometer sensor has changed.
 
        @param   timestamp    Timestamp of this sensor event
@@ -109,14 +124,42 @@ public class ActivityDetection {
        @param   z            Linear Accl z value (m/sec^2)
        @param   accuracy     Accuracy of the sensor data (you can ignore this)
      */
-    public void onLinearAcclSensorChanged( long timestamp , 
-                                           float x , 
-                                           float y , 
-                                           float z , 
+    public void onLinearAcclSensorChanged( long timestamp ,
+                                           float x ,
+                                           float y ,
+                                           float z ,
                                            int accuracy ) {
+        // Add the value to the window
+        float mag = (float) Math.sqrt( x * x + y * y + z * z);
+        acclWindow.add( new TimestampedLinAcclValue( mag , timestamp ) );
+        acclSum += mag;
+
+        // Purge old values from the window
+        Iterator< TimestampedLinAcclValue > i = acclWindow.iterator();
+        while( i.hasNext() ) {
+            TimestampedLinAcclValue value = i.next();
+            if( timestamp - value.timestamp > ACCL_WINDOW_SIZE ) {
+                i.remove();
+                acclSum -= value.mag;
+            }
+        }
+
+        float avgAccl = acclSum / acclWindow.size();
+        float stddev = 0.0F;
+        for( TimestampedLinAcclValue value : acclWindow ) {
+            stddev += ( value.mag - avgAccl ) * ( value.mag - avgAccl );
+        }
+        stddev /= acclWindow.size();
+        stddev = (float) Math.sqrt( stddev );
+        if( stddev < ACCL_THRESHOLD ) {
+            ActivitySimulator.outputDetectedActivity(UserActivities.IDLE_INDOOR);
+        }
+        else {
+            ActivitySimulator.outputDetectedActivity(UserActivities.BUS);
+        }
     }
 
-    /** 
+    /**
        Called when the magnetic sensor has changed.
 
        @param   timestamp    Timestamp of this sensor event
@@ -125,14 +168,14 @@ public class ActivityDetection {
        @param   z            Magnetic z value (microTesla)
        @param   accuracy     Accuracy of the sensor data (you can ignore this)
      */
-    public void onMagneticSensorChanged( long timestamp , 
-                                         float x , 
-                                         float y , 
-                                         float z , 
+    public void onMagneticSensorChanged( long timestamp ,
+                                         float x ,
+                                         float y ,
+                                         float z ,
                                          int accuracy ) {
     }
 
-    /** 
+    /**
        Called when the gyroscope sensor has changed.
 
        @param   timestamp    Timestamp of this sensor event
@@ -141,14 +184,14 @@ public class ActivityDetection {
        @param   z            Gyroscope z value (rad/sec)
        @param   accuracy     Accuracy of the sensor data (you can ignore this)
      */
-    public void onGyroscopeSensorChanged( long timestamp , 
-                                          float x , 
-                                          float y , 
-                                          float z , 
+    public void onGyroscopeSensorChanged( long timestamp ,
+                                          float x ,
+                                          float y ,
+                                          float z ,
                                           int accuracy ) {
     }
 
-    /** 
+    /**
        Called when the rotation vector sensor has changed.
 
        @param   timestamp    Timestamp of this sensor event
@@ -158,15 +201,15 @@ public class ActivityDetection {
        @param   scalar       Rotation vector scalar value (unitless)
        @param   accuracy     Accuracy of the sensor data (you can ignore this)
      */
-    public void onRotationVectorSensorChanged( long timestamp , 
-                                               float x , 
-                                               float y , 
-                                               float z , 
+    public void onRotationVectorSensorChanged( long timestamp ,
+                                               float x ,
+                                               float y ,
+                                               float z ,
                                                float scalar ,
                                                int accuracy ) {
     }
 
-    /** 
+    /**
        Called when the barometer sensor has changed.
 
        @param   timestamp    Timestamp of this sensor event
@@ -174,39 +217,39 @@ public class ActivityDetection {
        @param   altitude     Barometer altitude value w.r.t. standard sea level reference (meters)
        @param   accuracy     Accuracy of the sensor data (you can ignore this)
      */
-    public void onBarometerSensorChanged( long timestamp , 
-                                          float pressure , 
-                                          float altitude , 
+    public void onBarometerSensorChanged( long timestamp ,
+                                          float pressure ,
+                                          float altitude ,
                                           int accuracy ) {
     }
 
-    /** 
+    /**
        Called when the light sensor has changed.
 
        @param   timestamp    Timestamp of this sensor event
        @param   light        Light value (lux)
        @param   accuracy     Accuracy of the sensor data (you can ignore this)
      */
-    public void onLightSensorChanged( long timestamp , 
-                                      float light , 
+    public void onLightSensorChanged( long timestamp ,
+                                      float light ,
                                       int accuracy ) {
 
       this.light = light;
     }
 
-    /** 
+    /**
        Called when the proximity sensor has changed.
 
        @param   timestamp    Timestamp of this sensor event
        @param   proximity    Proximity value (cm)
        @param   accuracy     Accuracy of the sensor data (you can ignore this)
      */
-    public void onProximitySensorChanged( long timestamp , 
-                                          float proximity , 
+    public void onProximitySensorChanged( long timestamp ,
+                                          float proximity ,
                                           int accuracy ) {
     }
 
-    /** 
+    /**
        Called when the location sensor has changed.
 
        @param   timestamp    Timestamp of this location event
@@ -218,13 +261,13 @@ public class ActivityDetection {
        @param   bearing      Bearing (deg) (may be -1 if unavailable)
        @param   speed        Speed (m/sec) (may be -1 if unavailable)
      */
-    public void onLocationSensorChanged( long timestamp , 
-                                         String provider , 
-                                         double latitude , 
-                                         double longitude , 
-                                         float accuracy , 
-                                         double altitude , 
-                                         float bearing , 
+    public void onLocationSensorChanged( long timestamp ,
+                                         String provider ,
+                                         double latitude ,
+                                         double longitude ,
+                                         float accuracy ,
+                                         double altitude ,
+                                         float bearing ,
                                          float speed ) {
         this.speed = speed;
     }
@@ -243,56 +286,57 @@ public class ActivityDetection {
     private int numberTimers = 1;
     private boolean isIdle = false;
 
+    // Avg of thw accl window
+    float acclSum = 0.0F;
+
+
     private Runnable task = new Runnable() {
             public void run() {
 
                 // Logging to the DDMS (in the simulator, the DDMS log is to the console)
                 System.out.println();
-                Log.i( "ActivitySim" , "Timer " + numberTimers + ": Current simulator time: " + 
+                Log.i( "ActivitySim" , "Timer " + numberTimers + ": Current simulator time: " +
                        convertUnixTimeToReadableString( ActivitySimulator.currentTimeMillis() ) );
-                System.out.println( "Timer " + numberTimers + ": Current simulator time: " + 
+                System.out.println( "Timer " + numberTimers + ": Current simulator time: " +
                                     convertUnixTimeToReadableString( ActivitySimulator.currentTimeMillis() ) );
 
-                // Dummy example of outputting a detected activity 
+                // Dummy example of outputting a detected activity
                 //  (to the file "DetectedActivities.txt" in the trace folder).
                 //  (here we just alternate between indoor and walking every 10 min)
                 UserActivities detectedActivity;
 
-                // TODO: Detection Algorithm
-                /*x within -1 to 1 and y within -1 to 1, idling*/
-                if ( (x<1 && x>-1) && (y<1 && y>-1) ) {
-                  isIdle = true;
-                } else {
-                  isIdle = false;
-                }
+                // Avg value over the slidung window
 
-                if(isIdle) {
-                  if (light<300) {
-                    detectedActivity = UserActivities.IDLE_INDOOR;
-                  } else {
-                    detectedActivity = UserActivities.IDLE_OUTDOOR;
-                  }
-                } else {
-                  if(speed > 3) {
-                    detectedActivity = UserActivities.BUS;
-                  } else {
-                    detectedActivity =  UserActivities.WALKING;
-                  }
-                }
+//                // TODO: Detection Algorithm
+//                /*x within -1 to 1 and y within -1 to 1, idling*/
+//                if ( (x<1 && x>-1) && (y<1 && y>-1) ) {
+//                  isIdle = true;
+//                } else {
+//                  isIdle = false;
+//                }
+//
+//                if(isIdle) {
+//                  if (light<300) {
+//                    detectedActivity = UserActivities.IDLE_INDOOR;
+//                  } else {
+//                    detectedActivity = UserActivities.IDLE_OUTDOOR;
+//                  }
+//                } else {
+//                  if(speed > 3) {
+//                    detectedActivity = UserActivities.BUS;
+//                  } else {
+//                    detectedActivity =  UserActivities.WALKING;
+//                  }
+//                }
 
-                last_activity = detectedActivity;
-                ActivitySimulator.outputDetectedActivity(detectedActivity);
+//                last_activity = detectedActivity;
+//                ActivitySimulator.outputDetectedActivity(detectedActivity);
 
                 //isUserOutside = !isUserOutside;
-                
-                // Set a second timer to execute the same task 10 min later
-                ++numberTimers;
-                //2 hours * 5 mins each = 120 mins/5 = 24 counts recording
-                if( numberTimers <= 24) { 
-                    SimulatorTimer timer = new SimulatorTimer();
-                    timer.schedule( task ,             // Task to be executed
-                                    5 * 60 * 1000 );  // Delay in millisec (10 min)
-                }
+
+                SimulatorTimer timer = new SimulatorTimer();
+                timer.schedule( task ,             // Task to be executed
+                                2 * 1000 );  // Delay in millisec (10 min)
             }
         };
 }
