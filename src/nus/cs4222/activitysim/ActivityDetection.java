@@ -43,15 +43,12 @@ import android.util.*;
  */
 public class ActivityDetection {
 
-    long ACCL_WINDOW_SIZE = 4 * 1000; // millis
-    float ACCL_THRESHOLD = 0.01F * SensorManager.GRAVITY_EARTH;
-
     private float speed;
     private UserActivities last_activity;
 
-    private float light;
-    private float x;
-    private float y;
+    /* LINEAR ACCL */
+    long ACCL_WINDOW_SIZE = 4 * 1000; // millis
+    float ACCL_THRESHOLD = 0.01F * SensorManager.GRAVITY_EARTH;
 
     // Timestamped lin accl value
     private static class TimestampedLinAcclValue {
@@ -66,6 +63,27 @@ public class ActivityDetection {
     LinkedList< TimestampedLinAcclValue > acclWindow =
             new LinkedList<TimestampedLinAcclValue>();
     boolean isFirstAcclReading = true;
+
+
+
+    /* LIGHT INTENSITY */
+    long LIGHT_WINDOW_SIZE = 4 * 1000;
+    float LIGHT_THRESHOLD = 300;
+
+    private static class TimestampedLight {
+      public float light;
+      public long timestamp;
+      public TimestampedLight( float light, long timestamp) {
+        this.timestamp = timestamp;
+        this.light = light;
+      }
+    }
+    LinkedList< TimestampedLight > lightWindow =
+            new LinkedList<TimestampedLight();
+    boolean isFirstLightReading = true;
+
+
+
 
     public void initDetection()
             throws Exception {
@@ -95,8 +113,6 @@ public class ActivityDetection {
 
         // Process the sensor data as they arrive in each callback,
         //  with all the processing in the callback itself (don't create threads).
-        this.x = x;
-        this.y = y;
     }
 
     /**
@@ -152,10 +168,12 @@ public class ActivityDetection {
         stddev /= acclWindow.size();
         stddev = (float) Math.sqrt( stddev );
         if( stddev < ACCL_THRESHOLD ) {
-            ActivitySimulator.outputDetectedActivity(UserActivities.IDLE_INDOOR);
+            //ActivitySimulator.outputDetectedActivity(isIdle);
+            isIdle= true;
         }
         else {
-            ActivitySimulator.outputDetectedActivity(UserActivities.BUS);
+            //ActivitySimulator.outputDetectedActivity(UserActivities.BUS);
+            isIdle = false;
         }
     }
 
@@ -233,8 +251,29 @@ public class ActivityDetection {
     public void onLightSensorChanged( long timestamp ,
                                       float light ,
                                       int accuracy ) {
+        // Add the value to the window
+        lightWindow.add( new TimestampedLightValue( light , timestamp ) );
+        lightSum += light;
 
-      this.light = light;
+        // Purge old values from the window
+        Iterator< TimestampedLightValue > i = lightWindow.iterator();
+        while( i.hasNext() ) {
+            TimestampedLightValue value = i.next();
+            if( timestamp - value.timestamp > LIGHT_WINDOW_SIZE ) {
+                i.remove();
+                lightSum -= value.light;
+            }
+        }
+
+        if(isIdle) {
+          float avgLight = lightSum / lightWindow.size();
+          if( avgLight < LIGHT_THRESHOLD ) {
+              ActivitySimulator.outputDetectedActivity(UserActivities.IDLE_INDOOR);
+          }
+          else {
+              ActivitySimulator.outputDetectedActivity(UserActivities.IDLE_OUTDOOR);
+          }
+        }
     }
 
     /**
@@ -286,9 +325,11 @@ public class ActivityDetection {
     private int numberTimers = 1;
     private boolean isIdle = false;
 
-    // Avg of thw accl window
+    // Avg of the accl window
     float acclSum = 0.0F;
 
+    // Avg of the light window
+    float lightSum = 0.0F;
 
     private Runnable task = new Runnable() {
             public void run() {
