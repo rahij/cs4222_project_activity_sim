@@ -70,16 +70,16 @@ public class ActivityDetection {
     long LIGHT_WINDOW_SIZE = 4 * 1000;
     float LIGHT_THRESHOLD = 300;
 
-    private static class TimestampedLight {
+    private static class TimestampedLightValue {
       public float light;
       public long timestamp;
-      public TimestampedLight( float light, long timestamp) {
+      public TimestampedLightValue(float light, long timestamp) {
         this.timestamp = timestamp;
         this.light = light;
       }
     }
-    LinkedList< TimestampedLight > lightWindow =
-            new LinkedList<TimestampedLight();
+    LinkedList<TimestampedLightValue> lightWindow =
+            new LinkedList<>();
     boolean isFirstLightReading = true;
 
 
