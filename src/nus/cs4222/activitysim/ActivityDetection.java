@@ -43,8 +43,17 @@ import android.util.*;
  */
 public class ActivityDetection {
 
+    private boolean last_outdoors = false;
+    private boolean isIdle = false;
+
     private float speed;
     private UserActivities last_activity;
+
+    // Avg of the accl window
+    float acclSum = 0.0F;
+
+    // Avg of the light window
+    float lightSum = 0.0F;
 
     /* LINEAR ACCL */
     long ACCL_WINDOW_SIZE = 4 * 1000; // millis
@@ -168,12 +177,17 @@ public class ActivityDetection {
         stddev /= acclWindow.size();
         stddev = (float) Math.sqrt( stddev );
         if( stddev < ACCL_THRESHOLD ) {
-            //ActivitySimulator.outputDetectedActivity(isIdle);
             isIdle= true;
+            if (last_outdoors) {
+                ActivitySimulator.outputDetectedActivity(UserActivities.IDLE_OUTDOOR);
+            } else {
+                ActivitySimulator.outputDetectedActivity(UserActivities.IDLE_INDOOR);
+            }
+            //ActivitySimulator.outputDetectedActivity(isIdle);
         }
         else {
-            //ActivitySimulator.outputDetectedActivity(UserActivities.BUS);
             isIdle = false;
+            ActivitySimulator.outputDetectedActivity(UserActivities.BUS);
         }
     }
 
@@ -268,9 +282,11 @@ public class ActivityDetection {
         if(isIdle) {
           float avgLight = lightSum / lightWindow.size();
           if( avgLight < LIGHT_THRESHOLD ) {
+              last_outdoors = false;
               ActivitySimulator.outputDetectedActivity(UserActivities.IDLE_INDOOR);
           }
           else {
+              last_outdoors = true;
               ActivitySimulator.outputDetectedActivity(UserActivities.IDLE_OUTDOOR);
           }
         }
@@ -323,13 +339,6 @@ public class ActivityDetection {
     //private boolean isFirstAcclReading = true;
     //private boolean isUserOutside = false;
     private int numberTimers = 1;
-    private boolean isIdle = false;
-
-    // Avg of the accl window
-    float acclSum = 0.0F;
-
-    // Avg of the light window
-    float lightSum = 0.0F;
 
     private Runnable task = new Runnable() {
             public void run() {
