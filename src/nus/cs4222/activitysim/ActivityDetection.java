@@ -187,7 +187,11 @@ public class ActivityDetection {
         }
         else {
             isIdle = false;
-            ActivitySimulator.outputDetectedActivity(UserActivities.BUS);
+            if(0.6 < stddev) {
+                ActivitySimulator.outputDetectedActivity(UserActivities.WALKING);
+            } else {
+                ActivitySimulator.outputDetectedActivity(UserActivities.BUS);
+            }
         }
     }
 
