@@ -44,10 +44,14 @@ import android.util.*;
 public class ActivityDetection {
 
     private boolean last_outdoors = false;
+    private boolean last_walking = false;
     private boolean isIdle = false;
 
     private float speed;
     private UserActivities last_activity;
+
+    // Avg of the accl window
+    float speedSum = 0.0F;
 
     // Avg of the accl window
     float acclSum = 0.0F;
@@ -68,6 +72,8 @@ public class ActivityDetection {
             this.mag = mag;
         }
     }
+
+    long SPEED_WINDOW_SIZE = 4 * 1000; // millis
     // Window for lin accl values
     LinkedList< TimestampedLinAcclValue > acclWindow =
             new LinkedList<TimestampedLinAcclValue>();
@@ -75,8 +81,21 @@ public class ActivityDetection {
 
 
 
+    private static class TimestampedSpeedValue {
+        public float speed;
+        public long timestamp;
+        public TimestampedSpeedValue(float speed, long timestamp) {
+            this.timestamp = timestamp;
+            this.speed = speed;
+        }
+    }
+
+    // Window for lin accl values
+    LinkedList<TimestampedSpeedValue> speedWindow =
+            new LinkedList<>();
+
     /* LIGHT INTENSITY */
-    long LIGHT_WINDOW_SIZE = 4 * 1000;
+    long LIGHT_WINDOW_SIZE = 12 * 1000;
     float LIGHT_THRESHOLD = 300;
 
     private static class TimestampedLightValue {
@@ -154,12 +173,13 @@ public class ActivityDetection {
                                            float y ,
                                            float z ,
                                            int accuracy ) {
+
         // Add the value to the window
         float mag = (float) Math.sqrt( x * x + y * y + z * z);
         acclWindow.add( new TimestampedLinAcclValue( mag , timestamp ) );
         acclSum += mag;
 
-        // Purge old values from the window
+
         Iterator< TimestampedLinAcclValue > i = acclWindow.iterator();
         while( i.hasNext() ) {
             TimestampedLinAcclValue value = i.next();
@@ -187,7 +207,7 @@ public class ActivityDetection {
         }
         else {
             isIdle = false;
-            if(0.6 < stddev) {
+            if(last_walking) {
                 ActivitySimulator.outputDetectedActivity(UserActivities.WALKING);
             } else {
                 ActivitySimulator.outputDetectedActivity(UserActivities.BUS);
@@ -328,7 +348,39 @@ public class ActivityDetection {
                                          double altitude ,
                                          float bearing ,
                                          float speed ) {
+
+
         this.speed = speed;
+
+        // Add the value to the window
+
+        speedWindow.add( new TimestampedSpeedValue ( speed , timestamp ) );
+        speedSum += speed;
+
+        Iterator< TimestampedSpeedValue > j = speedWindow.iterator();
+        while( j.hasNext() ) {
+            TimestampedSpeedValue value = j.next();
+            if( timestamp - value.timestamp > SPEED_WINDOW_SIZE ) {
+                j.remove();
+                speedSum -= value.speed;
+            }
+        }
+
+
+
+        if(isIdle) {
+            float averageSpeed = speedSum / speedWindow.size();
+            System.out.println("speedWindow.size() " + speedWindow.size());
+            if(  -1 < averageSpeed && averageSpeed < 1 ) {
+                last_walking = true;
+                ActivitySimulator.outputDetectedActivity(UserActivities.WALKING);
+            }
+            else {
+                last_walking = false;
+                ActivitySimulator.outputDetectedActivity(UserActivities.BUS);
+            }
+        }
+
     }
 
     /** Helper method to convert UNIX millis time into a human-readable string. */
